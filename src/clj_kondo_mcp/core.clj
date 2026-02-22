@@ -21,6 +21,24 @@
     (requiring-resolve 'clj-kondo.core/run!)))
 
 ;; =============================================================================
+;; TTL Cache
+;; =============================================================================
+
+(def ^:private analysis-cache
+  "Atom holding {:path str :result map :timestamp-ms long}.
+   Single-entry cache — only the most recent path is cached."
+  (atom nil))
+
+(def ^:private cache-ttl-ms
+  "TTL for memoized analysis results: 30 seconds."
+  30000)
+
+(defn invalidate-cache!
+  "Evict the TTL analysis cache, forcing a fresh kondo-run! on next call."
+  []
+  (reset! analysis-cache nil))
+
+;; =============================================================================
 ;; Core Analysis
 ;; =============================================================================
 
@@ -40,10 +58,29 @@
                                :protocol-impls true}}
                    config)}))
 
+(defn cached-run-analysis
+  "Run analysis with 30s TTL memoization. Returns raw kondo result map.
+   Cache is keyed by path; stale or mismatched entries are evicted."
+  [path & opts]
+  (let [now    (System/currentTimeMillis)
+        cached @analysis-cache]
+    (if (and cached
+             (= path (:path cached))
+             (< (- now (:timestamp-ms cached)) cache-ttl-ms))
+      (do
+        (log/debug "Analysis cache hit for" path)
+        (:result cached))
+      (let [result (apply run-analysis path opts)]
+        (log/debug "Analysis cache miss for" path ", caching result")
+        (reset! analysis-cache {:path         path
+                                :result       result
+                                :timestamp-ms now})
+        result))))
+
 (defn analyze
   "Analyze a path and return structured analysis data."
   [path]
-  (let [{:keys [analysis findings]} (run-analysis path)]
+  (let [{:keys [analysis findings]} (cached-run-analysis path)]
     {:var-definitions (count (:var-definitions analysis))
      :var-usages (count (:var-usages analysis))
      :namespaces (count (:namespace-definitions analysis))
@@ -54,7 +91,7 @@
   "Find all call sites of a specific var.
    Returns list of {:filename :row :col :from :from-var :arity}"
   [path ns-name var-name]
-  (let [{:keys [analysis]} (run-analysis path)
+  (let [{:keys [analysis]} (cached-run-analysis path)
         var-usages (:var-usages analysis)
         target-ns (symbol ns-name)
         target-var (symbol var-name)]
@@ -68,7 +105,7 @@
   "Find all vars that a function calls.
    Returns list of {:filename :row :col :to :name :arity}"
   [path ns-name var-name]
-  (let [{:keys [analysis]} (run-analysis path)
+  (let [{:keys [analysis]} (cached-run-analysis path)
         var-usages (:var-usages analysis)
         source-ns (symbol ns-name)
         source-var (symbol var-name)]
@@ -82,7 +119,7 @@
   "Find definition(s) of a var.
    Returns list of {:filename :row :col :ns :name :doc :arglists}"
   [path var-name & [ns-name]]
-  (let [{:keys [analysis]} (run-analysis path)
+  (let [{:keys [analysis]} (cached-run-analysis path)
         var-defs (:var-definitions analysis)
         target-var (symbol var-name)
         target-ns (when ns-name (symbol ns-name))]
@@ -97,7 +134,7 @@
   "Get namespace dependency graph.
    Returns {:nodes [...] :edges [...]} suitable for visualization."
   [path]
-  (let [{:keys [analysis]} (run-analysis path)
+  (let [{:keys [analysis]} (cached-run-analysis path)
         ns-defs (:namespace-definitions analysis)
         ns-usages (:namespace-usages analysis)]
     {:nodes (mapv #(select-keys % [:name :filename :doc]) ns-defs)
@@ -110,7 +147,7 @@
   "Lint a path and return findings.
    Level can be :error, :warning, or :info"
   [path & {:keys [level] :or {level :warning}}]
-  (let [{:keys [findings]} (run-analysis path)]
+  (let [{:keys [findings]} (cached-run-analysis path)]
     (->> findings
          (filter #(case level
                     :error (= (:level %) :error)
@@ -122,7 +159,7 @@
 (defn unused-vars
   "Find unused private vars in a codebase."
   [path]
-  (let [{:keys [analysis]} (run-analysis path)
+  (let [{:keys [analysis]} (cached-run-analysis path)
         var-defs (:var-definitions analysis)
         var-usages (:var-usages analysis)
         used-vars (into #{}

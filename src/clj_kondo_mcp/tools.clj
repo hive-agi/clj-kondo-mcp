@@ -7,49 +7,85 @@
             [clj-kondo-mcp.log :as log]))
 
 ;; =============================================================================
+;; Param Helpers
+;; =============================================================================
+
+(def ^:private default-limit
+  "Default max results to return. Prevents 100K+ char MCP responses."
+  200)
+
+(defn- resolve-path
+  "Resolve path from params — accepts :path or :file_path (contributed by scc-mcp).
+   The composite analysis tool merges params from all addons, so callers may
+   pass file_path instead of path."
+  [{:keys [path file_path]}]
+  (or path file_path))
+
+(defn- apply-limit
+  "Cap a collection to limit entries. Returns {:items, :count, :truncated?}."
+  [coll limit]
+  (let [total (count coll)
+        lim   (or limit default-limit)]
+    {:items      (vec (take lim coll))
+     :count      total
+     :truncated? (> total lim)}))
+
+;; =============================================================================
 ;; Command Handlers
 ;; =============================================================================
 
 (def ^:private command-handlers
-  {"analyze"         (fn [{:keys [path]}]
-                       (let [{:keys [analysis] :as stats} (core/analyze path)]
+  {"analyze"         (fn [params]
+                       (let [{:keys [analysis] :as stats} (core/analyze (resolve-path params))]
                          (dissoc stats :analysis)))
 
-   "lint"            (fn [{:keys [path level]}]
-                       (let [level-kw (keyword (or level "warning"))
-                             findings (core/lint path :level level-kw)]
-                         {:findings (vec findings)
-                          :count    (count findings)
-                          :level    (name level-kw)}))
+   "lint"            (fn [params]
+                       (let [path     (resolve-path params)
+                             level-kw (keyword (or (:level params) "warning"))
+                             findings (core/lint path :level level-kw)
+                             {:keys [items count truncated?]} (apply-limit findings (:limit params))]
+                         {:findings  items
+                          :count     count
+                          :truncated truncated?
+                          :level     (name level-kw)}))
 
-   "callers"         (fn [{:keys [path ns var_name]}]
-                       (let [callers (core/find-callers path ns var_name)]
-                         {:target  {:ns ns :var var_name}
-                          :callers (vec callers)
-                          :count   (count callers)}))
+   "callers"         (fn [params]
+                       (let [path (resolve-path params)
+                             callers (core/find-callers path (:ns params) (:var_name params))
+                             {:keys [items count truncated?]} (apply-limit callers (:limit params))]
+                         {:target    {:ns (:ns params) :var (:var_name params)}
+                          :callers   items
+                          :count     count
+                          :truncated truncated?}))
 
-   "calls"           (fn [{:keys [path ns var_name]}]
-                       (let [calls (core/find-calls path ns var_name)]
-                         {:source {:ns ns :var var_name}
-                          :calls  (vec calls)
-                          :count  (count calls)}))
+   "calls"           (fn [params]
+                       (let [path (resolve-path params)
+                             calls (core/find-calls path (:ns params) (:var_name params))
+                             {:keys [items count truncated?]} (apply-limit calls (:limit params))]
+                         {:source    {:ns (:ns params) :var (:var_name params)}
+                          :calls     items
+                          :count     count
+                          :truncated truncated?}))
 
-   "find_var"        (fn [{:keys [path var_name ns]}]
-                       (if ns
-                         (core/find-var path var_name ns)
-                         (core/find-var path var_name)))
+   "find_var"        (fn [params]
+                       (let [path (resolve-path params)]
+                         (if (:ns params)
+                           (core/find-var path (:var_name params) (:ns params))
+                           (core/find-var path (:var_name params)))))
 
-   "namespace_graph" (fn [{:keys [path]}]
-                       (let [{:keys [nodes edges]} (core/namespace-graph path)]
+   "namespace_graph" (fn [params]
+                       (let [{:keys [nodes edges]} (core/namespace-graph (resolve-path params))]
                          {:nodes      nodes
                           :edges      edges
                           :node-count (count nodes)
                           :edge-count (count edges)}))
 
-   "unused_vars"     (fn [{:keys [path]}]
-                       (let [unused (core/unused-vars path)]
-                         {:unused (vec unused)
-                          :count  (count unused)}))})
+   "unused_vars"     (fn [params]
+                       (let [unused (core/unused-vars (resolve-path params))
+                             {:keys [items count truncated?]} (apply-limit unused (:limit params))]
+                         {:unused    items
+                          :count     count
+                          :truncated truncated?}))})
 
 ;; =============================================================================
 ;; MCP Interface (IAddon integration)
@@ -96,6 +132,6 @@
                  :required   ["command"]}})
 
 (defn invalidate-cache!
-  "Placeholder for cache invalidation (clj-kondo doesn't cache, but IAddon expects it)."
+  "Evict the TTL analysis cache, forcing a fresh kondo-run! on next tool call."
   []
-  nil)
+  (core/invalidate-cache!))

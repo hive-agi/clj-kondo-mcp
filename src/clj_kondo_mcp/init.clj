@@ -50,10 +50,42 @@
             {:success? true :already-initialized? true}
             (do
               (reset! state {:initialized? true})
+              ;; Contribute commands to composite "analysis" tool
+              (when-let [contribute! (try-resolve 'hive-mcp.extensions.registry/contribute-commands!)]
+                (contribute! "analysis" :kondo
+                             {"lint"        {:handler #(tools/handle-kondo (assoc % :command "lint"))
+                                             :params {"path" {:type "string" :description "Path to file or directory to lint"}
+                                                      "level" {:type "string" :enum ["error" "warning" "info"]
+                                                               :description "Minimum severity level"}}
+                                             :description "Run clj-kondo lint"}
+                              "analyze"     {:handler #(tools/handle-kondo (assoc % :command "analyze"))
+                                             :params {"path" {:type "string" :description "Path to analyze"}}
+                                             :description "Analyze project structure"}
+                              "callers"     {:handler #(tools/handle-kondo (assoc % :command "callers"))
+                                             :params {"path" {:type "string" :description "Path to analyze"}
+                                                      "ns" {:type "string" :description "Namespace of the target function"}
+                                                      "var_name" {:type "string" :description "Name of the function"}}
+                                             :description "Find all call sites of a var"}
+                              "calls"       {:handler #(tools/handle-kondo (assoc % :command "calls"))
+                                             :params {"path" {:type "string" :description "Path to analyze"}
+                                                      "ns" {:type "string" :description "Namespace of the source function"}
+                                                      "var_name" {:type "string" :description "Name of the function"}}
+                                             :description "Find all vars called by a function"}
+                              "graph"       {:handler #(tools/handle-kondo (assoc % :command "namespace_graph"))
+                                             :params {"path" {:type "string" :description "Path to analyze"}}
+                                             :description "Namespace dependency graph"}
+                              "find_var"    {:handler #(tools/handle-kondo (assoc % :command "find_var"))
+                                             :params {"path" {:type "string" :description "Path to analyze"}
+                                                      "var_name" {:type "string" :description "Name of the var"}
+                                                      "ns" {:type "string" :description "Namespace of the var"}}
+                                             :description "Find var definition"}
+                              "unused_vars" {:handler #(tools/handle-kondo (assoc % :command "unused_vars"))
+                                             :params {"path" {:type "string" :description "Path to analyze"}}
+                                             :description "Find unused private vars"}}))
               (log/info "clj-kondo-mcp addon initialized")
               {:success? true
                :errors []
-               :metadata {:tools 1}})))
+               :metadata {:tools 0}})))
 
         (shutdown! [_]
           (when (:initialized? @state)
@@ -62,7 +94,8 @@
           nil)
 
         (tools [_]
-          [(assoc (tools/tool-def) :handler tools/handle-kondo)])
+          ;; Commands contributed to composite "analysis" tool, no standalone tool
+          [])
 
         (schema-extensions [_] {})
 

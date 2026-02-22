@@ -1,7 +1,7 @@
 {:paths ["src"]
  :pods {clj-kondo/clj-kondo {:version "2026.01.12"}}
- :deps {org.babashka/cli {:mvn/version "0.8.62"}
-        cheshire/cheshire {:mvn/version "5.13.0"}
+ :deps {org.babashka/cli {:mvn/version "0.8.67"}
+        cheshire/cheshire {:mvn/version "6.1.0"}
         io.github.hive-agi/modex-bb {:git/tag "v0.1.0"
                                      :git/sha "439ff17ea854dce14a3e3963d6c86c5400c72962"}}
  :tasks

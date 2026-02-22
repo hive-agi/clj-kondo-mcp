@@ -1,7 +1,7 @@
 {:paths ["src" "resources"]
  :deps {org.clojure/clojure {:mvn/version "1.12.0"}
-        com.taoensso/timbre {:mvn/version "6.6.1"}
-        clj-kondo/clj-kondo {:mvn/version "2026.01.12"
+        com.taoensso/timbre {:mvn/version "6.8.0"}
+        clj-kondo/clj-kondo {:mvn/version "2026.01.19"
                              :exclusions [org.apache.logging.log4j/log4j-slf4j2-impl]}}
  :aliases
  {:test {:extra-paths ["test"]
