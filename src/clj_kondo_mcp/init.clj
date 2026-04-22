@@ -55,6 +55,7 @@
                 (contribute! "analysis" :kondo
                              {"lint"        {:handler #(tools/handle-kondo (assoc % :command "lint"))
                                              :params {"path" {:type "string" :description "Path to file or directory to lint"}
+                                                      "file" {:type "string" :description "Alias for path — scope lint to a single file"}
                                                       "level" {:type "string" :enum ["error" "warning" "info"]
                                                                :description "Minimum severity level"}}
                                              :description "Run clj-kondo lint"}

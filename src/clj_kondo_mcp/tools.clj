@@ -15,11 +15,36 @@
   200)
 
 (defn- resolve-path
-  "Resolve path from params — accepts :path or :file_path (contributed by scc-mcp).
-   The composite analysis tool merges params from all addons, so callers may
-   pass file_path instead of path."
-  [{:keys [path file_path]}]
-  (or path file_path))
+  "Resolve path from params — accepts :path, :file_path (scc-mcp), or :file
+   (common MCP/kanban idiom). The composite analysis tool merges params from
+   all addons, so callers may pass any of these synonyms."
+  [{:keys [path file_path file]}]
+  (or path file_path file))
+
+(defn- path-matches-finding?
+  "True when finding's :filename corresponds to the requested lint target.
+   Kondo emits filenames relative to the analysis cwd, while callers may
+   pass absolute or project-relative paths. Match when either path ends
+   with the other (suffix match after normalisation)."
+  [target finding]
+  (when (and target (:filename finding))
+    (let [t (str target)
+          f (str (:filename finding))]
+      (or (= t f)
+          (.endsWith t f)
+          (.endsWith f t)))))
+
+(defn- filter-findings-by-path
+  "When target-path refers to a concrete file (not a directory), keep only
+   findings whose filename matches that path. Directory targets pass through
+   unchanged. Defensive: if kondo ever returns cross-file findings for a
+   single-file request, this ensures the requested scope is respected."
+  [findings target-path]
+  (if (and target-path
+           (let [f (java.io.File. (str target-path))]
+             (and (.exists f) (.isFile f))))
+    (filterv #(path-matches-finding? target-path %) findings)
+    (vec findings)))
 
 (defn- apply-limit
   "Cap a collection to limit entries. Returns {:items, :count, :truncated?}."
@@ -42,7 +67,8 @@
    "lint"            (fn [params]
                        (let [path     (resolve-path params)
                              level-kw (keyword (or (:level params) "warning"))
-                             findings (core/lint path :level level-kw)
+                             findings (-> (core/lint path :level level-kw)
+                                          (filter-findings-by-path path))
                              {:keys [items count truncated?]} (apply-limit findings (:limit params))]
                          {:findings  items
                           :count     count
@@ -122,6 +148,8 @@
                                          :enum (sort (keys command-handlers))}
                               :path     {:type        "string"
                                          :description "Path to file or directory to analyze"}
+                              :file     {:type        "string"
+                                         :description "Alias for :path — restricts lint/analyze to a single file"}
                               :ns       {:type        "string"
                                          :description "Namespace of the target/source function"}
                               :var_name {:type        "string"
