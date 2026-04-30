@@ -3,3 +3,5 @@ local.config.edn
 .nrepl-port
 .lsp/
 .clj-kondo/.cache/
+.clj-kondo/
+target/

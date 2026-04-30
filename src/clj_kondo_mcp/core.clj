@@ -58,21 +58,57 @@
                                :protocol-impls true}}
                    config)}))
 
+(defn- ^:private max-mtime
+  "Walk `path` and return the max last-modified ms across Clojure source files
+   (.clj/.cljc/.cljs/.edn). Used as a content-hash proxy in the analysis cache
+   so any file edit invalidates the entry — was a 30s blind TTL before, which
+   surfaced post-edit stale findings (kanban 20260424115059)."
+  [^String path]
+  (try
+    (let [f (java.io.File. path)]
+      (cond
+        (not (.exists f)) 0
+        (.isFile f)       (.lastModified f)
+        :else             (->> (file-seq f)
+                               (filter (fn [^java.io.File ff]
+                                         (and (.isFile ff)
+                                              (let [n (.getName ff)]
+                                                (or (.endsWith n ".clj")
+                                                    (.endsWith n ".cljc")
+                                                    (.endsWith n ".cljs")
+                                                    (.endsWith n ".edn"))))))
+                               (map (fn [^java.io.File ff] (.lastModified ff)))
+                               (reduce max 0))))
+    (catch Throwable _ 0)))
+
 (defn cached-run-analysis
-  "Run analysis with 30s TTL memoization. Returns raw kondo result map.
-   Cache is keyed by path; stale or mismatched entries are evicted."
+  "Run analysis with TTL+mtime memoization. Returns raw kondo result map.
+
+   Cache is keyed by (path, max-mtime); any file edit under `path`
+   invalidates the entry, so post-edit lint calls always see fresh
+   findings (vs. the prior path-only key, which returned stale cached
+   results for up to 30s after an edit — kanban 20260424115059).
+
+   The 30s TTL is retained as a secondary ceiling for the rare case
+   where files mutate without changing mtime (e.g. atomic rewrite
+   preserving timestamps via `touch -r`)."
   [path & opts]
   (let [now    (System/currentTimeMillis)
+        mtime  (max-mtime path)
         cached @analysis-cache]
     (if (and cached
              (= path (:path cached))
+             (= mtime (:max-mtime cached))
              (< (- now (:timestamp-ms cached)) cache-ttl-ms))
       (do
         (log/debug "Analysis cache hit for" path)
         (:result cached))
       (let [result (apply run-analysis path opts)]
-        (log/debug "Analysis cache miss for" path ", caching result")
+        (log/debug "Analysis cache miss for" path
+                   "mtime" mtime "(prev" (:max-mtime cached) ")"
+                   ", caching result")
         (reset! analysis-cache {:path         path
+                                :max-mtime    mtime
                                 :result       result
                                 :timestamp-ms now})
         result))))
