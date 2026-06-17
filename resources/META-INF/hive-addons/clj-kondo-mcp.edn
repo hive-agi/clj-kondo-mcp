@@ -1,4 +1,5 @@
 {:addon/id           "clj-kondo.mcp"
+ :addon/kind         :addon
  :addon/type         :native
  :addon/init-ns      "clj-kondo-mcp.init"
  :addon/init-fn      "init-as-addon!"
