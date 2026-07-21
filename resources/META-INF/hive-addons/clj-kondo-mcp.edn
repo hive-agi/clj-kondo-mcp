@@ -2,6 +2,6 @@
  :addon/kind         :addon
  :addon/type         :native
  :addon/init-ns      "clj-kondo-mcp.init"
- :addon/init-fn      "init-as-addon!"
+ :addon/init-fn      "addon-ctor"
  :addon/capabilities #{:tools}
  :addon/description  "clj-kondo static analysis and linting — deterministic L1 structural layer"}

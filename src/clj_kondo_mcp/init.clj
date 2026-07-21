@@ -162,6 +162,16 @@
   []
   [(tools/tool-def)])
 
+(defn addon-ctor
+  "Pure constructor for the `clj-kondo.mcp` IAddon — (config -> IAddon | nil).
+   The mounter (hive-addon.mount) resolves this via :addon/init-fn; the host
+   then drives register!/initialize!. No registration, no initialize! call, no
+   side effects. Returns nil when the IAddon protocol is absent from the
+   classpath (graceful). Additive: the zero-arg self-registering `init-as-addon!`
+   path remains for the current hive-mcp loader."
+  [_config]
+  (make-addon))
+
 (defn init-as-addon!
   "Register clj-kondo-mcp as an IAddon. Falls back to legacy register-tools!."
   []
