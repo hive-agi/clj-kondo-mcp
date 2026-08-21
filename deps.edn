@@ -1,5 +1,5 @@
 {:paths ["src" "resources"]
- :deps {org.clojure/clojure {:mvn/version "1.12.0"}
+ :deps {org.clojure/clojure {:mvn/version "1.12.5"}
         com.taoensso/timbre {:mvn/version "6.8.0"}
         clj-kondo/clj-kondo {:mvn/version "2026.08.04"
                              :exclusions [org.apache.logging.log4j/log4j-slf4j2-impl]}}
