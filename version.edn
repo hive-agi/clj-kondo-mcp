@@ -2,5 +2,5 @@
  :minor    1
  :license  {:name "MIT" :url "https://opensource.org/licenses/MIT"}
  :scm-url  "https://github.com/hive-agi/clj-kondo-mcp"
- :src-dirs ["src"]
+ :src-dirs ["src" "resources"]
  :publish  :clojars}
