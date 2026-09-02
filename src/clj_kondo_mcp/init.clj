@@ -11,7 +11,8 @@
      ;; Legacy fallback:
      (register-tools!)"
   (:require [clj-kondo-mcp.tools :as tools]
-            [clj-kondo-mcp.log :as log]))
+            [clj-kondo-mcp.log :as log]
+            [hive-addon.protocol :as addon]))
 
 ;; =============================================================================
 ;; Resolution Helpers
@@ -31,13 +32,11 @@
 (defonce ^:private addon-instance (atom nil))
 
 (defn- make-addon
-  "Create an IAddon reify for clj-kondo-mcp.
-   Returns nil if protocol is not on classpath."
+  "Create an IAddon reify for clj-kondo-mcp."
   []
-  (when (try-resolve 'hive-mcp.addons.protocol/IAddon)
-    (let [state (atom {:initialized? false})]
-      (reify
-        hive-mcp.addons.protocol/IAddon
+  (let [state (atom {:initialized? false})]
+    (reify
+      addon/IAddon
 
         (addon-id [_] "clj-kondo.mcp")
 
@@ -103,7 +102,7 @@
         (health [_]
           (if (:initialized? @state)
             {:status :ok :details {}}
-            {:status :down :details {:reason "not initialized"}}))))))
+            {:status :down :details {:reason "not initialized"}})))))
 
 ;; =============================================================================
 ;; Dep Registry + Nil-Railway Pipeline
