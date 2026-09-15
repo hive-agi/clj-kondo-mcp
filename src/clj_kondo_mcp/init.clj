@@ -12,7 +12,8 @@
      (register-tools!)"
   (:require [clj-kondo-mcp.tools :as tools]
             [clj-kondo-mcp.log :as log]
-            [hive-addon.protocol :as addon]))
+            [hive-addon.protocol :as addon]
+            [hive-addon.registry.commands :as addon-cmds]))
 
 ;; =============================================================================
 ;; Resolution Helpers
@@ -50,8 +51,7 @@
             (do
               (reset! state {:initialized? true})
               ;; Contribute commands to composite "analysis" tool
-              (when-let [contribute! (try-resolve 'hive-mcp.extensions.registry/contribute-commands!)]
-                (contribute! "analysis" :kondo
+              (addon-cmds/contribute! "analysis" :kondo
                              {"lint"        {:handler #(tools/handle-kondo (assoc % :command "lint"))
                                              :params {"path" {:type "string" :description "Path to file or directory to lint"}
                                                       "file" {:type "string" :description "Alias for path — scope lint to a single file"}
@@ -81,7 +81,7 @@
                                              :description "Find var definition"}
                               "unused_vars" {:handler #(tools/handle-kondo (assoc % :command "unused_vars"))
                                              :params {"path" {:type "string" :description "Path to analyze"}}
-                                             :description "Find unused private vars"}}))
+                                             :description "Find unused private vars"}})
               (log/info "clj-kondo-mcp addon initialized")
               {:success? true
                :errors []
