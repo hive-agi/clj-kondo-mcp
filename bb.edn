@@ -2,8 +2,8 @@
  :pods {clj-kondo/clj-kondo {:version "2026.01.12"}}
  :deps {org.babashka/cli {:mvn/version "0.12.91"}
         cheshire/cheshire {:mvn/version "6.2.0"}
-        io.github.hive-agi/modex-bb {:git/tag "v0.1.8"
-                                     :git/sha "1350c8788ed9fcdbd3aa202c963220f1d16e8788"}}
+        io.github.hive-agi/modex-bb {:git/tag "v0.1.9"
+                                     :git/sha "8fecaa7ba3edb71fbe40ff7608971c18aea972c6"}}
  :tasks
  {server {:doc "Start the clj-kondo MCP server (babashka)"
           :task (exec 'clj-kondo-mcp.server/-main)}}}
