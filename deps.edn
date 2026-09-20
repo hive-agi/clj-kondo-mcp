@@ -4,14 +4,14 @@
         ;; hive-addon: the IAddon contract this addon implements. Depending on
         ;; the contract lib rather than on a host namespace is what lets any
         ;; host, hive-mcp or not, mount this jar.
-        io.github.hive-agi/hive-addon {:mvn/version "1.0.13"}
+        io.github.hive-agi/hive-addon {:mvn/version "1.0.14"}
         clj-kondo/clj-kondo {:mvn/version "2026.08.04"
                              :exclusions [org.apache.logging.log4j/log4j-slf4j2-impl]}}
  :aliases
  {
   ;; :build — tools.build entrypoint (clojure -T:build <task>). Canonical hive
   ;; build: jar / jar-aot / install / bump / verify-license / deploy.
-  :build {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.21"}}
+  :build {:deps {io.github.hive-agi/hive-build {:mvn/version "0.1.22"}}
           :ns-default hive-build.api}
 :test {:extra-paths ["test"]
          :extra-deps {lambdaisland/kaocha {:mvn/version "1.91.1392"}}}}}
